@@ -1,0 +1,8 @@
+# BUG: Werkzeug is pinned to an old 0.x version that is INCOMPATIBLE with Flask 2.x
+# Flask 2.x requires Werkzeug>=2.0.0
+# This mismatch causes ImportError: cannot import name 'ImmutableDict'
+Flask==2.3.3
+Werkzeug==0.16.1
+SQLAlchemy==1.4.46
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
