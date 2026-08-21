@@ -10,11 +10,13 @@ export default function App() {
   const [phase, setPhase] = useState('form')  // 'form' | 'loading' | 'result' | 'error'
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [lastErrorLog, setLastErrorLog] = useState('')
   const [loadingStep, setLoadingStep] = useState(0)
 
   const handleAnalyze = async ({ repositoryUrl, errorLog }) => {
     setPhase('loading')
     setError(null)
+    setLastErrorLog(errorLog)
     setLoadingStep(0)
 
     // Simulate stepped progress for UX
@@ -141,7 +143,12 @@ export default function App() {
 
         {phase === 'result' && result && (
           <div className="animate-slide-up">
-            <ResultReport result={result} onReset={handleReset} />
+            <ResultReport
+              result={result}
+              errorLog={lastErrorLog}
+              apiBase={API_BASE}
+              onReset={handleReset}
+            />
           </div>
         )}
 

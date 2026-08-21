@@ -14,7 +14,13 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from models.schemas import AnalyzeRequest, AnalysisResult, ErrorResponse
+from models.schemas import (
+    AnalyzeRequest,
+    AnalysisResult,
+    FixPromptRequest,
+    FixPromptResponse,
+    ErrorResponse,
+)
 from services.repository_analyzer.analyzer import RepositoryAnalyzer
 from services.ai_analyzer.analyzer import AIAnalyzer
 
@@ -78,6 +84,27 @@ def analyze(request: AnalyzeRequest):
     logger.info(f"Analysis complete in {duration}s — severity: {result_data.get('severity')}")
 
     return AnalysisResult(**result_data)
+
+
+@router.post(
+    "/generate-fix-prompt",
+    response_model=FixPromptResponse,
+    summary="Generate or regenerate an AI fix prompt from diagnosis context",
+)
+def generate_fix_prompt(request: FixPromptRequest):
+    """Generate a clean, structured coding prompt for external coding agents."""
+    prompt = ai_analyzer.generate_fix_prompt(
+        root_cause=request.root_cause,
+        severity=request.severity or "Medium",
+        confidence=request.confidence or "High",
+        evidence=request.evidence,
+        affected_files=request.affected_files,
+        suggested_fix=request.suggested_fix,
+        explanation=request.explanation or "",
+        repository_url=request.repository_url or "",
+        error_log=request.error_log or "",
+    )
+    return FixPromptResponse(ai_fix_prompt=prompt)
 
 
 @router.get("/health", summary="Health check")

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 // Severity color mapping
 const SEVERITY_CONFIG = {
   Critical: { bg: 'bg-accent-red/10', border: 'border-accent-red/30', text: 'text-accent-red', dot: 'bg-accent-red' },
@@ -16,11 +18,16 @@ function parseConfidencePct(confidence) {
   return 50
 }
 
-function SectionHeader({ icon, label }) {
+function SectionHeader({ icon, label, subtitle }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <span className="text-text-secondary">{icon}</span>
-      <span className="section-heading !mb-0">{label}</span>
+    <div className="mb-3">
+      <div className="flex items-center gap-2">
+        <span className="text-text-secondary">{icon}</span>
+        <span className="section-heading !mb-0">{label}</span>
+      </div>
+      {subtitle && (
+        <p className="text-xs text-text-muted mt-1">{subtitle}</p>
+      )}
     </div>
   )
 }
@@ -37,10 +44,63 @@ function FileChip({ path }) {
   )
 }
 
-export default function ResultReport({ result, onReset }) {
+export default function ResultReport({ result, errorLog = '', apiBase = '', onReset }) {
   const severity = result.severity || 'Medium'
   const sev = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.Medium
   const confidencePct = parseConfidencePct(result.confidence)
+
+  // AI Fix Prompt state
+  const [fixPrompt, setFixPrompt] = useState(result.ai_fix_prompt || '')
+  const [isCopied, setIsCopied] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [regenError, setRegenError] = useState(null)
+
+  const handleCopyPrompt = async () => {
+    if (!fixPrompt) return
+    try {
+      await navigator.clipboard.writeText(fixPrompt)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2500)
+    } catch (err) {
+      console.error('Failed to copy prompt to clipboard:', err)
+    }
+  }
+
+  const handleRegeneratePrompt = async () => {
+    setIsRegenerating(true)
+    setRegenError(null)
+
+    try {
+      const response = await fetch(`${apiBase}/api/generate-fix-prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          root_cause: result.root_cause,
+          severity: result.severity,
+          confidence: result.confidence,
+          evidence: result.evidence || [],
+          affected_files: result.affected_files || [],
+          suggested_fix: result.suggested_fix,
+          explanation: result.explanation || '',
+          repository_url: result.repo_url || '',
+          error_log: errorLog,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to regenerate prompt (${response.status})`)
+      }
+
+      const data = await response.json()
+      if (data.ai_fix_prompt) {
+        setFixPrompt(data.ai_fix_prompt)
+      }
+    } catch (err) {
+      setRegenError(err.message || 'Could not regenerate prompt')
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto animate-slide-up">
@@ -167,6 +227,90 @@ export default function ResultReport({ result, onReset }) {
           {result.explanation}
         </p>
       </div>
+
+      {/* ── 🛠️ AI FIX PROMPT (New Feature) ─────────────── */}
+      {fixPrompt && (
+        <div className="card mb-6 border-2 border-accent-purple/30 bg-accent-purple/[0.03]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🛠️</span>
+                <span className="text-sm font-bold text-text-primary uppercase tracking-wider">AI Fix Prompt</span>
+              </div>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Ready-to-use prompt for coding agents (Antigravity, Gemini, Cursor, Copilot, ChatGPT)
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRegeneratePrompt}
+                disabled={isRegenerating}
+                className="px-3 py-1.5 text-xs font-medium border border-bg-border rounded-lg text-text-secondary
+                           hover:border-accent-purple hover:text-accent-purple active:bg-bg-tertiary transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  className={isRegenerating ? 'animate-spin' : ''}
+                >
+                  <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-7.068 2H.534a.25.25 0 0 1-.192-.41l1.966-2.36a.25.25 0 0 1 .384 0l1.966 2.36a.25.25 0 0 1-.192.41z"/>
+                  <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                </svg>
+                {isRegenerating ? 'Regenerating...' : 'Regenerate Prompt'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyPrompt}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 flex items-center gap-1.5
+                  ${isCopied
+                    ? 'bg-accent-green text-bg-primary shadow-sm'
+                    : 'bg-accent-purple text-bg-primary hover:bg-purple-400 active:bg-purple-600'
+                  }`}
+              >
+                {isCopied ? (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                    </svg>
+                    Prompt copied!
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/>
+                      <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+                    </svg>
+                    Copy Prompt
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {regenError && (
+            <div className="mb-3 p-2.5 rounded-lg bg-accent-red/10 border border-accent-red/20 text-xs text-accent-red">
+              {regenError}
+            </div>
+          )}
+
+          {/* Prompt Content Area */}
+          <div className="code-block text-xs leading-relaxed max-h-[380px] overflow-y-auto whitespace-pre-wrap border-bg-border bg-bg-secondary selection:bg-accent-purple/30">
+            {fixPrompt}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-[11px] text-text-muted">
+            <span>Copy this prompt directly into your AI coding assistant to implement the fix.</span>
+            <span>~{fixPrompt.split(/\s+/).filter(Boolean).length} words</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Disclaimer footer ─────────────────────────── */}
       <div className="text-center text-xs text-text-muted py-4 border-t border-bg-border">

@@ -202,6 +202,87 @@ def _analyze_with_openai(user_prompt: str) -> dict:
     return _parse_llm_response(raw)
 
 
+def generate_ai_fix_prompt(
+    root_cause: str,
+    severity: str = "Medium",
+    confidence: str = "High",
+    evidence: list = None,
+    affected_files: list = None,
+    suggested_fix: str = "",
+    explanation: str = "",
+    repository_url: str = "",
+    error_log: str = "",
+) -> str:
+    evidence_items = evidence or []
+    files = affected_files or []
+
+    evidence_text = "\n".join([f"- {e}" for e in evidence_items]) if evidence_items else "- No specific evidence list available from the current analysis."
+    files_text = "\n".join([f"- `{f}`" for f in files]) if files else "- Affected files not specified in the current analysis."
+    error_text = error_log.strip() if error_log and error_log.strip() else "Error context not explicitly attached to this diagnosis."
+    repo_text = repository_url.strip() if repository_url and repository_url.strip() else "Local workspace / supplied project"
+    expl_text = explanation.strip() if explanation and explanation.strip() else "Refer to diagnostic evidence and suggested fix above."
+    fix_text = suggested_fix.strip() if suggested_fix and suggested_fix.strip() else "Apply remediation as identified in the root cause summary."
+
+    prompt = f"""# AI Debugging & Remediation Prompt
+
+## 1. ROLE
+You are an expert senior software engineer and debugging specialist. Your objective is to investigate, locate, and resolve a verified software defect in this codebase with precision, minimal code churn, and zero regressions.
+
+## 2. TASK
+Analyze the project context, verify the diagnosed failure, and implement the necessary code and configuration corrections to resolve the issue reported below in repository `{repo_text}`.
+
+## 3. PROBLEM SUMMARY (DIAGNOSED ROOT CAUSE)
+- **Diagnosed Root Cause**: {root_cause}
+- **Severity Level**: {severity}
+- **Diagnostic Confidence**: {confidence}
+- **Target Repository**: {repo_text}
+
+## 4. ERROR CONTEXT & STACK TRACE
+```text
+{error_text}
+```
+
+## 5. AFFECTED FILES
+The following files have been identified as directly involved in this failure:
+{files_text}
+
+## 6. DIAGNOSTIC EVIDENCE
+The diagnosis is substantiated by the following confirmed evidence:
+{evidence_text}
+
+## 7. SUGGESTED FIX
+{fix_text}
+
+## 8. EXPLANATION & CONTEXT
+{expl_text}
+
+## 9. STRICT IMPLEMENTATION INSTRUCTIONS
+1. **Inspect Before Modifying**: Thoroughly inspect the existing repository, dependencies, and configuration before making any modifications.
+2. **Verify Diagnosis**: Confirm that the diagnosis accurately describes the failure and matches the current codebase state.
+3. **Locate Exact Code**: Pinpoint the precise lines, functions, or dependency definitions that require adjustment.
+4. **Minimal Required Changes**: Implement only the minimum changes required to resolve the root cause. Avoid unnecessary refactoring or moving unrelated logic.
+5. **Preserve Existing Functionality**: Ensure that existing features, public interfaces, and configuration options remain intact.
+6. **No Unrelated Dependencies**: Do not introduce new third-party dependencies unless strictly necessary for the fix.
+7. **Adhere to Code Style**: Strictly follow the existing project's coding style, conventions, and formatting.
+
+## 10. VERIFICATION & TESTING
+1. **Reproduce Failure**: If feasible in the local environment, reproduce the original failure to verify the symptom.
+2. **Apply Remediation**: Apply the code and configuration adjustments.
+3. **Execute Tests**: Run relevant test suites and start the application to ensure clean execution without startup or runtime errors.
+4. **Confirm Resolution**: Verify that the original error log/traceback is completely eliminated.
+5. **Check for Regressions**: Ensure no adjacent workflows or modules were broken.
+
+## 11. FINAL RESPONSE REQUIREMENTS
+Upon completing the repair, please provide a clear summary report containing:
+- **Files Changed**: Complete list of modified, added, or deleted files.
+- **Changes Made**: Clear summary of code and configuration adjustments.
+- **Why the Fix Works**: Technical explanation of how the change resolves the root cause.
+- **Tests Performed**: Verification commands and test results.
+- **Remaining Risks**: Any edge cases, deprecation notes, or follow-up considerations."""
+
+    return prompt
+
+
 # ── Main Entry Point ───────────────────────────────────────────────────────────
 
 class AIAnalyzer:
@@ -216,12 +297,52 @@ class AIAnalyzer:
         # Auto-detect provider from environment
         if os.getenv("GEMINI_API_KEY"):
             logger.info("Using Gemini as LLM provider")
-            return _analyze_with_gemini(user_prompt)
+            result = _analyze_with_gemini(user_prompt)
         elif os.getenv("OPENAI_API_KEY"):
             logger.info("Using OpenAI as LLM provider")
-            return _analyze_with_openai(user_prompt)
+            result = _analyze_with_openai(user_prompt)
         else:
             raise EnvironmentError(
                 "No LLM API key found. Please set GEMINI_API_KEY or OPENAI_API_KEY "
                 "in your .env file. See .env.example for details."
             )
+
+        # Generate the structured AI Fix Prompt
+        result["ai_fix_prompt"] = generate_ai_fix_prompt(
+            root_cause=result.get("root_cause", ""),
+            severity=result.get("severity", "Medium"),
+            confidence=result.get("confidence", "High"),
+            evidence=result.get("evidence", []),
+            affected_files=result.get("affected_files", []),
+            suggested_fix=result.get("suggested_fix", ""),
+            explanation=result.get("explanation", ""),
+            repository_url=repo_context.get("repo_url", ""),
+            error_log=error_log,
+        )
+
+        return result
+
+    def generate_fix_prompt(
+        self,
+        root_cause: str,
+        severity: str = "Medium",
+        confidence: str = "High",
+        evidence: list = None,
+        affected_files: list = None,
+        suggested_fix: str = "",
+        explanation: str = "",
+        repository_url: str = "",
+        error_log: str = "",
+    ) -> str:
+        """Generate a standalone AI Fix Prompt from diagnosis components."""
+        return generate_ai_fix_prompt(
+            root_cause=root_cause,
+            severity=severity,
+            confidence=confidence,
+            evidence=evidence,
+            affected_files=affected_files,
+            suggested_fix=suggested_fix,
+            explanation=explanation,
+            repository_url=repository_url,
+            error_log=error_log,
+        )

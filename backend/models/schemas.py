@@ -51,9 +51,27 @@ class AnalysisResult(BaseModel):
     affected_files: List[str]
     suggested_fix: str
     explanation: str
+    ai_fix_prompt: Optional[str] = None # High-quality prompt for coding agents
     # metadata added by the backend
     repo_url: Optional[str] = None
     analysis_duration_seconds: Optional[float] = None
+
+
+class FixPromptRequest(BaseModel):
+    """Request to generate or regenerate an AI fix prompt from an existing diagnosis."""
+    root_cause: str
+    severity: Optional[str] = "Medium"
+    confidence: Optional[str] = "High"
+    evidence: List[str] = []
+    affected_files: List[str] = []
+    suggested_fix: str
+    explanation: Optional[str] = ""
+    repository_url: Optional[str] = ""
+    error_log: Optional[str] = ""
+
+
+class FixPromptResponse(BaseModel):
+    ai_fix_prompt: str
 
 
 class ErrorResponse(BaseModel):
