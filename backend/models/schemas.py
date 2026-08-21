@@ -7,7 +7,7 @@ from pydantic import BaseModel, HttpUrl, field_validator
 
 class AnalyzeRequest(BaseModel):
     repository_url: str
-    error_log: str
+    error_log: Optional[str] = None
 
     @field_validator("repository_url")
     @classmethod
@@ -18,16 +18,6 @@ class AnalyzeRequest(BaseModel):
         # Accept github.com or any git-clonable URL for flexibility
         if not (v.startswith("https://") or v.startswith("http://") or v.startswith("git@")):
             raise ValueError("repository_url must be a valid HTTP/HTTPS/SSH URL")
-        return v
-
-    @field_validator("error_log")
-    @classmethod
-    def validate_error_log(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("error_log cannot be empty — paste the error or log output")
-        if len(v) < 10:
-            raise ValueError("error_log is too short — please provide more detail")
         return v
 
 

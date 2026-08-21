@@ -61,7 +61,7 @@ def analyze(request: AnalyzeRequest):
 
     # ── Step 2: AI Root-Cause Analysis ────────────────────────
     try:
-        result_data = ai_analyzer.analyze(request.error_log, repo_context)
+        result_data = ai_analyzer.analyze(repo_context=repo_context, error_log=request.error_log)
     except EnvironmentError as e:
         raise HTTPException(status_code=500, detail=str(e))
     except ValueError as e:

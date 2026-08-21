@@ -22,27 +22,36 @@ logger = logging.getLogger(__name__)
 
 # ── Prompt Construction ────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are DevGuard AI, an expert software debugging assistant.
+SYSTEM_PROMPT = """You are DevGuard AI, an expert software debugging and root-cause analysis assistant.
 
-Your job is to perform root-cause analysis on a software project failure.
+Your job is to inspect and analyze a software repository to identify bugs, root-cause failures, version/dependency conflicts, broken imports, configuration mismatches, syntax/runtime defects, or error-prone implementations.
+
 You will receive:
-1. An error log or stack trace
-2. The repository structure
-3. Dependency files (package.json, requirements.txt, etc.)
-4. Configuration files
-5. Relevant source code
+1. The repository structure
+2. Dependency files (package.json, requirements.txt, pyproject.toml, etc.)
+3. Configuration files
+4. Relevant source code
+5. Optional error log or stack trace (if available)
 
 Your task:
-- Identify the PROBABLE ROOT CAUSE of the failure
+- Audit the repository to detect the primary root-cause issue, critical bug, dependency conflict, or runtime defect.
+- If an error log is provided, trace its root cause in the codebase.
+- If no error log is provided, inspect the repository for:
+  * Incompatible dependency/version constraints (e.g. library A requires version X, but pinned to version Y)
+  * Broken, deprecated, or missing imports
+  * Undefined variables, functions, classes, or incorrect symbol references
+  * Configuration errors or environment mismatches
+  * Startup or initialization failures
+  * Suspicious, bug-prone, or crashing code paths
 - Distinguish clearly between: confirmed evidence, probable cause, and suggested fix
-- Do NOT make unsupported claims
+- Do NOT make unsupported claims. If the repository does not provide enough evidence to identify a definitive defect, state: "Insufficient evidence from repository inspection."
 - Do NOT generate large amounts of code unless the fix is trivial
-- Be specific: reference exact file names, line patterns, version numbers when visible
+- Be specific: reference exact file names, line patterns, version numbers, and imported symbols
 
 You MUST return ONLY valid JSON (no markdown, no code fences, no extra text) matching exactly this schema:
 
 {
-  "root_cause": "One clear sentence describing the most probable root cause",
+  "root_cause": "One clear sentence describing the most probable root cause (or 'Insufficient evidence from repository inspection.')",
   "severity": "Low|Medium|High|Critical",
   "confidence": "High (90%)|Medium (65%)|Low (40%)",
   "evidence": [
@@ -59,24 +68,25 @@ You MUST return ONLY valid JSON (no markdown, no code fences, no extra text) mat
 }
 
 Severity guidelines:
-- Critical: App cannot start / data loss risk
-- High: Core feature broken, no workaround
-- Medium: Feature degraded, workaround exists
+- Critical: App cannot start / startup crash / fatal version incompatibility / data loss
+- High: Core feature broken, unhandled exception, missing dependency
+- Medium: Feature degraded, deprecation warning, subtle logic bug
 - Low: Minor issue, cosmetic, or edge case
 
 Confidence guidelines:
-- High: Strong direct evidence in files provided
-- Medium: Indirect evidence, requires verification
-- Low: Hypothesis based on limited context
+- High: Strong direct evidence in files provided (e.g. pinned incompatible version, invalid import)
+- Medium: Indirect evidence, requires runtime verification
+- Low: Hypothesis based on limited context or insufficient evidence
 """
 
 
-def _build_user_prompt(error_log: str, context: dict) -> str:
+def _build_user_prompt(context: dict, error_log: str = None) -> str:
     parts = []
 
-    parts.append("## ERROR LOG / STACK TRACE\n")
-    parts.append(error_log.strip())
-    parts.append("\n")
+    if error_log and error_log.strip():
+        parts.append("## ERROR LOG / STACK TRACE (OPTIONAL CONTEXT)\n")
+        parts.append(error_log.strip())
+        parts.append("\n")
 
     parts.append("## REPOSITORY STRUCTURE\n")
     parts.append("```\n" + context.get("structure", "Not available") + "\n```\n")
@@ -97,7 +107,7 @@ def _build_user_prompt(error_log: str, context: dict) -> str:
             parts.append(f"### {fname}\n```\n{content}\n```\n")
 
     parts.append(
-        "\nAnalyze the above and return ONLY the JSON object described in the system prompt."
+        "\nInspect the above repository and return ONLY the JSON object described in the system prompt."
     )
 
     return "\n".join(parts)
@@ -218,7 +228,7 @@ def generate_ai_fix_prompt(
 
     evidence_text = "\n".join([f"- {e}" for e in evidence_items]) if evidence_items else "- No specific evidence list available from the current analysis."
     files_text = "\n".join([f"- `{f}`" for f in files]) if files else "- Affected files not specified in the current analysis."
-    error_text = error_log.strip() if error_log and error_log.strip() else "Error context not explicitly attached to this diagnosis."
+    error_text = error_log.strip() if error_log and error_log.strip() else "Diagnosed via automated static codebase & dependency inspection."
     repo_text = repository_url.strip() if repository_url and repository_url.strip() else "Local workspace / supplied project"
     expl_text = explanation.strip() if explanation and explanation.strip() else "Refer to diagnostic evidence and suggested fix above."
     fix_text = suggested_fix.strip() if suggested_fix and suggested_fix.strip() else "Apply remediation as identified in the root cause summary."
@@ -237,7 +247,7 @@ Analyze the project context, verify the diagnosed failure, and implement the nec
 - **Diagnostic Confidence**: {confidence}
 - **Target Repository**: {repo_text}
 
-## 4. ERROR CONTEXT & STACK TRACE
+## 4. ERROR CONTEXT / DETECTION SOURCE
 ```text
 {error_text}
 ```
@@ -266,10 +276,10 @@ The diagnosis is substantiated by the following confirmed evidence:
 7. **Adhere to Code Style**: Strictly follow the existing project's coding style, conventions, and formatting.
 
 ## 10. VERIFICATION & TESTING
-1. **Reproduce Failure**: If feasible in the local environment, reproduce the original failure to verify the symptom.
+1. **Reproduce Failure**: If feasible in the local environment, reproduce the diagnosed issue to verify the symptom.
 2. **Apply Remediation**: Apply the code and configuration adjustments.
 3. **Execute Tests**: Run relevant test suites and start the application to ensure clean execution without startup or runtime errors.
-4. **Confirm Resolution**: Verify that the original error log/traceback is completely eliminated.
+4. **Confirm Resolution**: Verify that the defect is completely eliminated.
 5. **Check for Regressions**: Ensure no adjacent workflows or modules were broken.
 
 ## 11. FINAL RESPONSE REQUIREMENTS
@@ -287,12 +297,12 @@ Upon completing the repair, please provide a clear summary report containing:
 
 class AIAnalyzer:
 
-    def analyze(self, error_log: str, repo_context: dict) -> dict:
+    def analyze(self, repo_context: dict, error_log: str = None) -> dict:
         """
-        Run AI root-cause analysis.
+        Run AI root-cause analysis on repository context.
         Returns a dict matching AnalysisResult fields.
         """
-        user_prompt = _build_user_prompt(error_log, repo_context)
+        user_prompt = _build_user_prompt(context=repo_context, error_log=error_log)
 
         # Auto-detect provider from environment
         if os.getenv("GEMINI_API_KEY"):
@@ -317,7 +327,7 @@ class AIAnalyzer:
             suggested_fix=result.get("suggested_fix", ""),
             explanation=result.get("explanation", ""),
             repository_url=repo_context.get("repo_url", ""),
-            error_log=error_log,
+            error_log=error_log or "",
         )
 
         return result

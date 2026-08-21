@@ -10,16 +10,14 @@ export default function App() {
   const [phase, setPhase] = useState('form')  // 'form' | 'loading' | 'result' | 'error'
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  const [lastErrorLog, setLastErrorLog] = useState('')
   const [loadingStep, setLoadingStep] = useState(0)
 
-  const handleAnalyze = async ({ repositoryUrl, errorLog }) => {
+  const handleAnalyze = async ({ repositoryUrl }) => {
     setPhase('loading')
     setError(null)
-    setLastErrorLog(errorLog)
     setLoadingStep(0)
 
-    // Simulate stepped progress for UX
+    // Stepped progress simulation for UX
     const stepTimer = setInterval(() => {
       setLoadingStep(prev => Math.min(prev + 1, 2))
     }, 4000)
@@ -30,7 +28,6 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           repository_url: repositoryUrl,
-          error_log: errorLog,
         }),
       })
 
@@ -103,15 +100,15 @@ export default function App() {
             <div className="text-center mb-12">
               <div className="inline-flex items-center gap-2 bg-bg-secondary border border-bg-border rounded-full px-4 py-1.5 text-xs text-text-secondary mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse-slow"></span>
-                Prototype v1 — Powered by Gemini AI
+                Autonomous Codebase Audit &amp; Fix Generator
               </div>
               <h1 className="text-4xl sm:text-5xl font-bold text-text-primary mb-4 tracking-tight">
                 Stop guessing.<br />
                 <span className="text-accent-blue">Find the root cause.</span>
               </h1>
               <p className="text-text-secondary text-lg max-w-xl mx-auto leading-relaxed">
-                Paste a GitHub repository URL and your error log. DevGuard AI analyzes your codebase,
-                dependencies, and configuration to pinpoint what actually broke.
+                Paste any public GitHub repository URL. DevGuard AI inspects your code, dependencies,
+                and configuration to pinpoint bugs and generate ready-to-use fix prompts.
               </p>
             </div>
 
@@ -120,10 +117,10 @@ export default function App() {
             {/* How it works */}
             <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { icon: '⬇️', label: 'Clone Repository', desc: 'Reads your code & deps' },
-                { icon: '🔍', label: 'Analyze Context', desc: 'Maps error to codebase' },
-                { icon: '🤖', label: 'AI Diagnosis', desc: 'Identifies root cause' },
-                { icon: '📋', label: 'Structured Report', desc: 'Evidence + fix' },
+                { icon: '⬇️', label: 'Clone Repo', desc: 'Reads source & dependencies' },
+                { icon: '🔍', label: 'Inspect Codebase', desc: 'Audits imports, syntax & configs' },
+                { icon: '🤖', label: 'AI Root Cause', desc: 'Pinpoints defects & conflicts' },
+                { icon: '🛠️', label: 'AI Fix Prompt', desc: 'Generates ready-to-use fix prompt' },
               ].map((step, i) => (
                 <div key={i} className="card text-center p-4">
                   <div className="text-2xl mb-2">{step.icon}</div>
@@ -145,7 +142,6 @@ export default function App() {
           <div className="animate-slide-up">
             <ResultReport
               result={result}
-              errorLog={lastErrorLog}
               apiBase={API_BASE}
               onReset={handleReset}
             />
@@ -181,7 +177,7 @@ export default function App() {
       {/* ── Footer ──────────────────────────────────────── */}
       <footer className="border-t border-bg-border mt-24 py-8">
         <div className="max-w-6xl mx-auto px-6 text-center text-text-muted text-xs">
-          DevGuard AI — Prototype v1 &nbsp;·&nbsp; Not for production use
+          DevGuard AI — Automated Root-Cause Debugging &amp; Fix Generator
         </div>
       </footer>
     </div>
