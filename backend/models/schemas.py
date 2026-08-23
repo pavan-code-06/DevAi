@@ -2,7 +2,40 @@
 Pydantic schemas for DevGuard AI API.
 """
 from typing import List, Optional
+import re
+import urllib.parse
 from pydantic import BaseModel, HttpUrl, field_validator
+
+
+def sanitize_repo_url(url: str) -> str:
+    """
+    Sanitize and normalize Git repository URLs:
+    - Strips query parameters (e.g. ?tab=readme-ov-file)
+    - Strips fragment identifiers (e.g. #readme)
+    - Normalizes GitHub/GitLab tree/blob subpaths to base repository URL
+    - Strips trailing slashes
+    """
+    url = url.strip()
+    if not url:
+        return ""
+
+    if url.startswith("git@"):
+        return url.split("?")[0].split("#")[0].rstrip("/")
+
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.scheme:
+        url = "https://" + url
+        parsed = urllib.parse.urlparse(url)
+
+    if parsed.scheme in ("http", "https"):
+        path = parsed.path.rstrip("/")
+        subpath_match = re.search(r"^(.*?)(?:/(?:tree|blob)/.*)$", path)
+        if subpath_match:
+            path = subpath_match.group(1)
+        clean_url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+        return clean_url.rstrip("/")
+
+    return url.split("?")[0].split("#")[0].rstrip("/")
 
 
 class AnalyzeRequest(BaseModel):
@@ -12,7 +45,7 @@ class AnalyzeRequest(BaseModel):
     @field_validator("repository_url")
     @classmethod
     def validate_repo_url(cls, v: str) -> str:
-        v = v.strip()
+        v = sanitize_repo_url(v)
         if not v:
             raise ValueError("repository_url cannot be empty")
         # Accept github.com or any git-clonable URL for flexibility

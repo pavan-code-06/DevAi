@@ -1,6 +1,15 @@
-# DevGuard AI — Root-Cause Debugging Assistant
+# DevGuard AI — Autonomous Codebase Debugger & AI Fix Prompt Generator
 
-> AI-powered tool that analyzes a GitHub repository + error log and produces a structured root-cause diagnosis.
+> Autonomous AI-powered tool that analyzes a GitHub repository, diagnoses root-cause bugs, and generates ready-to-use fix prompts for coding agents.
+
+---
+
+## Features
+
+- **Repository-Only Analysis**: Simply paste a public GitHub repository URL — no error log or stack trace required.
+- **Deep Codebase Inspection**: Automatically clones and audits dependency manifests (`requirements.txt`, `pyproject.toml`, `package.json`), configuration files, and source code.
+- **Autonomous Root-Cause Diagnosis**: Detects version incompatibilities, broken imports, symbol errors, and runtime bugs.
+- **🛠️ AI Fix Prompt Generator**: Generates an actionable 10-section implementation prompt (~450–500 words) ready to copy directly into Antigravity, Gemini, Cursor, Copilot, or ChatGPT.
 
 ---
 
@@ -9,8 +18,8 @@
 ### 1. Clone and set up
 
 ```bash
-git clone <this-repo>
-cd devguard-ai
+git clone https://github.com/pavan-code-06/DevAi.git
+cd DevAi/devguard-ai
 ```
 
 ### 2. Set up environment variables
@@ -20,7 +29,7 @@ cp .env.example .env
 # Edit .env and add your GEMINI_API_KEY
 ```
 
-Get a free Gemini API key at: https://aistudio.google.com
+Get a free Gemini API key at: https://aistudio.google.com/apikey
 
 ### 3. Install backend dependencies
 
@@ -32,13 +41,13 @@ pip install -r requirements.txt
 ### 4. Install frontend dependencies
 
 ```bash
-cd frontend
+cd ../frontend
 npm install
 ```
 
 ---
 
-## Running the App
+## Running the App Locally
 
 ### Start backend (from the `backend/` directory)
 
@@ -49,8 +58,8 @@ python main.py
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend runs at: http://localhost:8000
-API docs at: http://localhost:8000/docs
+- Backend API: http://localhost:8000
+- Swagger Docs: http://localhost:8000/docs
 
 ### Start frontend (from the `frontend/` directory)
 
@@ -59,49 +68,20 @@ cd frontend
 npm run dev
 ```
 
-Frontend runs at: http://localhost:5173
+- Frontend UI: http://localhost:5173
 
 ---
 
 ## Environment Variables
 
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes (or OpenAI) | Google Gemini API key |
+|---|---|---|
+| `GEMINI_API_KEY` | Yes (or OpenAI) | Google AI Studio API key |
+| `GEMINI_MODEL` | Optional | Gemini model name (default: `gemini-3.6-flash`) |
 | `OPENAI_API_KEY` | Optional | OpenAI API key (alternative provider) |
-| `OPENAI_MODEL` | Optional | OpenAI model (default: `gpt-3.5-turbo`) |
-| `MAX_CONTEXT_BYTES` | Optional | Max bytes of code sent to LLM (default: 60000) |
-| `MAX_FILE_BYTES` | Optional | Max bytes per file (default: 15000) |
-
----
-
-## Testing with the Demo Project
-
-The `demo-project/` directory contains an intentionally broken Flask app.
-
-The bug: **Flask 2.3.3 is pinned alongside Werkzeug 0.16.1** — an incompatible version combination that causes an `ImportError` at startup.
-
-### To test:
-
-1. Push `demo-project/` to a public GitHub repository
-2. Open DevGuard AI at http://localhost:5173
-3. Paste the repository URL
-4. Paste this error log:
-
-```
-Traceback (most recent call last):
-  File "app.py", line 1, in <module>
-    from flask import Flask, jsonify
-  File "/usr/local/lib/python3.10/site-packages/flask/__init__.py", line 14, in <module>
-    from .app import Flask as Flask
-  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 28, in <module>
-    from werkzeug.datastructures import Headers, ImmutableDict
-ImportError: cannot import name 'ImmutableDict' from 'werkzeug.datastructures'
-(/usr/local/lib/python3.10/site-packages/werkzeug/datastructures/__init__.py)
-```
-
-5. Click "Analyze"
-6. DevGuard AI should identify the `Werkzeug==0.16.1` version mismatch as the root cause
+| `CORS_ORIGINS` | Optional | Allowed origins (default: `*`) |
+| `MAX_CONTEXT_BYTES` | Optional | Max context budget sent to LLM (default: 60000) |
+| `MAX_FILE_BYTES` | Optional | Max bytes per individual file (default: 15000) |
 
 ---
 
@@ -109,27 +89,30 @@ ImportError: cannot import name 'ImmutableDict' from 'werkzeug.datastructures'
 
 ```
 devguard-ai/
-├── frontend/               # React + Vite + Tailwind CSS
+├── frontend/               # React 18 + Vite 5 + Tailwind CSS 3
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── AnalyzeForm.jsx     # URL + error log input form
-│   │   │   ├── LoadingState.jsx    # Animated progress steps
-│   │   │   └── ResultReport.jsx    # Structured analysis report
+│   │   │   ├── AnalyzeForm.jsx     # GitHub URL input & validation
+│   │   │   ├── LoadingState.jsx    # Step progress animation
+│   │   │   └── ResultReport.jsx    # Report view + AI Fix Prompt (copy/regen)
 │   │   ├── App.jsx
 │   │   └── index.css
-│   └── package.json
+│   ├── package.json
+│   └── vercel.json         # Vercel SPA routing
 │
 ├── backend/                # Python FastAPI
-│   ├── main.py             # App entry point
-│   ├── api/routes.py       # POST /api/analyze
+│   ├── main.py             # Server entry point & static mount
+│   ├── api/routes.py       # POST /api/analyze & POST /api/generate-fix-prompt
 │   ├── services/
-│   │   ├── repository_analyzer/analyzer.py  # Clones & extracts repo context
-│   │   └── ai_analyzer/analyzer.py          # Calls LLM, parses result
+│   │   ├── repository_analyzer/analyzer.py  # Git shallow clone & context extraction
+│   │   └── ai_analyzer/analyzer.py          # AI reasoning & prompt generator
 │   ├── models/schemas.py   # Pydantic request/response models
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── Procfile            # Render/Heroku process configuration
 │
-├── demo-project/           # Intentionally broken Flask app (for testing)
-├── .env.example
+├── demo-project/           # Intentionally broken test project
+├── render.yaml             # Render Blueprint configuration
+├── .env.example            # Safe environment template
 └── README.md
 ```
 
@@ -137,71 +120,83 @@ devguard-ai/
 
 ## API Reference
 
-### POST /api/analyze
+### 1. POST `/api/analyze`
 
 **Request:**
 ```json
 {
-  "repository_url": "https://github.com/owner/repo",
-  "error_log": "Traceback (most recent call last):\n..."
+  "repository_url": "https://github.com/pallets/flask"
 }
 ```
 
 **Response:**
 ```json
 {
+  "root_cause": "src/flask/app.py imports ImmutableDict removed in Werkzeug 3.0+.",
+  "severity": "Critical",
+  "confidence": "High (90%)",
+  "evidence": [
+    "pyproject.toml pins werkzeug>=3.1.0",
+    "src/flask/app.py imports ImmutableDict"
+  ],
+  "affected_files": ["src/flask/app.py", "pyproject.toml"],
+  "suggested_fix": "In src/flask/app.py, replace ImmutableDict with types.MappingProxyType.",
+  "explanation": "Werkzeug 3.0 removed ImmutableDict causing startup crash.",
+  "ai_fix_prompt": "# AI Debugging & Remediation Prompt\n\n## 1. ROLE...",
+  "repo_url": "https://github.com/pallets/flask",
+  "analysis_duration_seconds": 32.4
+}
+```
+
+### 2. POST `/api/generate-fix-prompt`
+
+**Request:**
+```json
+{
   "root_cause": "...",
-  "severity": "High",
-  "confidence": "High (85%)",
-  "evidence": ["...", "..."],
-  "affected_files": ["requirements.txt", "app.py"],
+  "severity": "Critical",
+  "confidence": "High (90%)",
+  "evidence": ["..."],
+  "affected_files": ["..."],
   "suggested_fix": "...",
   "explanation": "...",
-  "repo_url": "https://github.com/owner/repo",
-  "analysis_duration_seconds": 28.4
+  "repository_url": "https://github.com/owner/repo"
+}
+```
+
+**Response:**
+```json
+{
+  "ai_fix_prompt": "# AI Debugging & Remediation Prompt..."
 }
 ```
 
 ---
 
-## Deployment Guide
+## Production Deployment
 
-### Option A: 1-Click Deploy on Render (Recommended)
-
-1. Push this repository to GitHub.
-2. Go to [Render Dashboard](https://dashboard.render.com/) -> **New** -> **Blueprint**.
-3. Connect your repository. Render will automatically read [`render.yaml`](file:///c:/Users/pavan/OneDrive/Desktop/DevAI/devguard-ai/render.yaml) to provision both:
-   - **`devguard-ai-backend`**: FastAPI web service
-   - **`devguard-ai-frontend`**: Static Vite site connected to the backend
-4. Set the `GEMINI_API_KEY` environment variable in the Render dashboard.
-5. Click **Apply**.
-
----
-
-### Option B: Deploy Backend on Render / Railway + Frontend on Vercel
-
-#### 1. Backend (Render / Railway)
+### Backend (Render)
 - **Root Directory**: `backend`
 - **Build Command**: `pip install -r requirements.txt`
 - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - **Environment Variables**:
   - `GEMINI_API_KEY`: Your Google AI Studio key
-  - `CORS_ORIGINS`: `*` (or your frontend domain)
+  - `GEMINI_MODEL`: `gemini-3.6-flash`
+  - `CORS_ORIGINS`: `*`
+  - `PYTHON_VERSION`: `3.11.9`
 
-#### 2. Frontend (Vercel / Netlify / Cloudflare Pages)
+### Frontend (Vercel)
 - **Root Directory**: `frontend`
+- **Framework Preset**: `Vite`
 - **Build Command**: `npm run build`
 - **Output Directory**: `dist`
 - **Environment Variables**:
-  - `VITE_API_URL`: Your deployed backend URL (e.g., `https://devguard-backend.onrender.com`)
+  - `VITE_API_URL`: Your live Render backend URL (e.g. `https://devguard-ai-backend.onrender.com`)
 
 ---
 
-## Known Limitations (Prototype v1)
+## Limitations & Architecture Notes
 
-- Only public GitHub repositories are supported
-- Very large repositories may be partially analyzed (context is capped at ~60KB)
-- Analysis takes 20–60 seconds depending on repo size and LLM response time
-- No authentication, rate limiting, or caching
-- Redis, queues, Docker, and worker pools are planned for v2
-
+- Only public Git repositories are supported in the prototype.
+- Repositories are analyzed up to a configurable context budget (~60 KB) focusing on manifests, configuration, and entry-point source files.
+- The AI analyzer adheres to an accuracy rule: If static evidence is inconclusive, it explicitly reports *"Insufficient evidence from repository inspection"* rather than speculating.

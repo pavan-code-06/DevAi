@@ -131,6 +131,38 @@ def _read_file_safe(path: Path, max_bytes: int = MAX_FILE_BYTES) -> str:
         return f"[Could not read file: {e}]"
 
 
+def _sanitize_git_url(url: str) -> str:
+    """
+    Sanitize and normalize Git repository URLs:
+    - Strips query parameters (e.g. ?tab=readme-ov-file)
+    - Strips fragment identifiers (e.g. #readme)
+    - Normalizes GitHub/GitLab tree/blob subpaths to base repository URL
+    - Strips trailing slashes
+    """
+    import urllib.parse
+    url = url.strip()
+    if not url:
+        return ""
+
+    if url.startswith("git@"):
+        return url.split("?")[0].split("#")[0].rstrip("/")
+
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.scheme:
+        url = "https://" + url
+        parsed = urllib.parse.urlparse(url)
+
+    if parsed.scheme in ("http", "https"):
+        path = parsed.path.rstrip("/")
+        subpath_match = re.search(r"^(.*?)(?:/(?:tree|blob)/.*)$", path)
+        if subpath_match:
+            path = subpath_match.group(1)
+        clean_url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+        return clean_url.rstrip("/")
+
+    return url.split("?")[0].split("#")[0].rstrip("/")
+
+
 # ── Main Analyzer ──────────────────────────────────────────────────────────────
 
 class RepositoryAnalyzer:
@@ -145,11 +177,12 @@ class RepositoryAnalyzer:
         - total_files_found: int
         - total_bytes_sent: int
         """
+        clean_url = _sanitize_git_url(repo_url)
         tmp_dir = tempfile.mkdtemp(prefix="devguard_")
         try:
-            logger.info(f"Cloning {repo_url} into {tmp_dir}")
-            self._clone(repo_url, tmp_dir)
-            return self._extract_context(repo_url, Path(tmp_dir))
+            logger.info(f"Cloning {clean_url} into {tmp_dir}")
+            self._clone(clean_url, tmp_dir)
+            return self._extract_context(clean_url, Path(tmp_dir))
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             logger.info("Cleaned up temp directory")
@@ -158,13 +191,14 @@ class RepositoryAnalyzer:
 
     def _clone(self, url: str, dest: str):
         """Clone a public repo. Raises ValueError on bad URL or clone failure."""
+        clean_url = _sanitize_git_url(url)
         # Validate it looks like a git URL
-        if not re.search(r"github\.com|gitlab\.com|bitbucket\.org|\.git$", url):
+        if not re.search(r"github\.com|gitlab\.com|bitbucket\.org|\.git$", clean_url):
             raise ValueError(
                 f"URL does not appear to be a supported Git hosting URL: {url}"
             )
         try:
-            git.Repo.clone_from(url, dest, depth=1)
+            git.Repo.clone_from(clean_url, dest, depth=1)
         except git.exc.GitCommandError as e:
             raise RuntimeError(
                 f"Failed to clone repository. Ensure it is public and the URL is correct.\n{e}"
