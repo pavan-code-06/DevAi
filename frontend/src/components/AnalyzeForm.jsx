@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const DEMO_URL = 'https://github.com/pavan-code-06/DevAi'
+const DEMO_URL = 'https://github.com/pavan-code-06/DevAiDemoTest'
 
 export default function AnalyzeForm({ onAnalyze }) {
   const [repositoryUrl, setRepositoryUrl] = useState('')
