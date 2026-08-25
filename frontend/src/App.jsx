@@ -1,5 +1,15 @@
-import { useState } from 'react'
-import AnalyzeForm from './components/AnalyzeForm'
+import { useState, useRef } from 'react'
+import Navbar from './components/Navbar'
+import HeroSection from './components/HeroSection'
+import ProblemSection from './components/ProblemSection'
+import SolutionSection from './components/SolutionSection'
+import ArchitectureDiagram from './components/ArchitectureDiagram'
+import DemoWorkflow from './components/DemoWorkflow'
+import ResultsPreview from './components/ResultsPreview'
+import WhyDevGuard from './components/WhyDevGuard'
+import LiveDemoSection from './components/LiveDemoSection'
+import PhoneFirstVision from './components/PhoneFirstVision'
+import Footer from './components/Footer'
 import LoadingState from './components/LoadingState'
 import ResultReport from './components/ResultReport'
 
@@ -7,7 +17,7 @@ const rawApi = import.meta.env.VITE_API_URL
 const API_BASE = rawApi !== undefined ? rawApi.replace(/\/$/, '') : (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
 export default function App() {
-  const [phase, setPhase] = useState('form')  // 'form' | 'loading' | 'result' | 'error'
+  const [phase, setPhase] = useState('form') // 'form' | 'loading' | 'result' | 'error'
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [loadingStep, setLoadingStep] = useState(0)
@@ -16,6 +26,7 @@ export default function App() {
     setPhase('loading')
     setError(null)
     setLoadingStep(0)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
 
     // Stepped progress simulation for UX
     const stepTimer = setInterval(() => {
@@ -41,10 +52,12 @@ export default function App() {
       const data = await response.json()
       setResult(data)
       setPhase('result')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       clearInterval(stepTimer)
       setError(err.message || 'An unexpected error occurred')
       setPhase('error')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -53,93 +66,85 @@ export default function App() {
     setResult(null)
     setError(null)
     setLoadingStep(0)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleNavigateToDemo = () => {
+    if (phase !== 'form') {
+      handleReset()
+      setTimeout(() => {
+        const el = document.getElementById('demo-section')
+        if (el) el.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    } else {
+      const el = document.getElementById('demo-section')
+      if (el) el.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
+  const handleScrollTo = (id) => {
+    if (phase !== 'form') {
+      handleReset()
+      setTimeout(() => {
+        const el = document.getElementById(id)
+        if (el) el.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    } else {
+      const el = document.getElementById(id)
+      if (el) el.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      {/* ── Header ──────────────────────────────────────── */}
-      <header className="border-b border-bg-border bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent-blue flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" stroke="#0d1117" strokeWidth="1.5" fill="#0d1117"/>
-                <path d="M8 5L11 7V11L8 13L5 11V7L8 5Z" fill="#58a6ff"/>
-              </svg>
-            </div>
-            <div>
-              <span className="font-semibold text-text-primary tracking-tight">DevGuard AI</span>
-              <span className="ml-2 badge bg-accent-blue/10 text-accent-blue border border-accent-blue/20 text-[10px]">
-                Beta
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-text-secondary">
-            <span className="hidden sm:block">AI-Powered Root-Cause Debugging</span>
-            {phase === 'result' && (
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-1.5 text-accent-blue hover:text-blue-300 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
-                  <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                </svg>
-                New Analysis
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col justify-between selection:bg-accent-blue/20 selection:text-accent-blue">
+      {/* ── Top Navbar ────────────────────────────────────────── */}
+      <Navbar
+        onNavigateToDemo={handleNavigateToDemo}
+        phase={phase}
+        onReset={handleReset}
+      />
 
-      {/* ── Main Content ─────────────────────────────────── */}
-      <main className="max-w-6xl mx-auto px-6 py-12">
+      {/* ── Main View Area ────────────────────────────────────── */}
+      <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 w-full">
         {phase === 'form' && (
           <div className="animate-fade-in">
-            {/* Hero */}
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 bg-bg-secondary border border-bg-border rounded-full px-4 py-1.5 text-xs text-text-secondary mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse-slow"></span>
-                Autonomous Codebase Audit &amp; Fix Generator
-              </div>
-              <h1 className="text-4xl sm:text-5xl font-bold text-text-primary mb-4 tracking-tight">
-                Stop guessing.<br />
-                <span className="text-accent-blue">Find the root cause.</span>
-              </h1>
-              <p className="text-text-secondary text-lg max-w-xl mx-auto leading-relaxed">
-                Paste any public GitHub repository URL. DevGuard AI inspects your code, dependencies,
-                and configuration to pinpoint bugs and generate ready-to-use fix prompts.
-              </p>
-            </div>
+            {/* 1. Hero Section */}
+            <HeroSection onTryDemo={handleNavigateToDemo} />
 
-            <AnalyzeForm onAnalyze={handleAnalyze} />
+            {/* 2. Problem Section */}
+            <ProblemSection />
 
-            {/* How it works */}
-            <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { icon: '⬇️', label: 'Clone Repo', desc: 'Reads source & dependencies' },
-                { icon: '🔍', label: 'Inspect Codebase', desc: 'Audits imports, syntax & configs' },
-                { icon: '🤖', label: 'AI Root Cause', desc: 'Pinpoints defects & conflicts' },
-                { icon: '🛠️', label: 'AI Fix Prompt', desc: 'Generates ready-to-use fix prompt' },
-              ].map((step, i) => (
-                <div key={i} className="card text-center p-4">
-                  <div className="text-2xl mb-2">{step.icon}</div>
-                  <div className="text-sm font-medium text-text-primary">{step.label}</div>
-                  <div className="text-xs text-text-secondary mt-1">{step.desc}</div>
-                </div>
-              ))}
-            </div>
+            {/* 3. DevGuard Solution Section */}
+            <SolutionSection />
+
+            {/* 4. Architecture Section */}
+            <ArchitectureDiagram />
+
+            {/* 5. Demo Workflow Section */}
+            <DemoWorkflow />
+
+            {/* 6. Results Preview Section */}
+            <ResultsPreview />
+
+            {/* 7. Why DevGuard Section */}
+            <WhyDevGuard />
+
+            {/* 8. Live Demo & Analyzer Section */}
+            <LiveDemoSection onAnalyze={handleAnalyze} />
+
+            {/* 9. Phone-First Vision Section */}
+            <PhoneFirstVision />
           </div>
         )}
 
         {phase === 'loading' && (
-          <div className="animate-fade-in">
+          <div className="py-16 animate-fade-in">
             <LoadingState step={loadingStep} />
           </div>
         )}
 
         {phase === 'result' && result && (
-          <div className="animate-slide-up">
+          <div className="py-10 animate-slide-up">
             <ResultReport
               result={result}
               apiBase={API_BASE}
@@ -149,24 +154,32 @@ export default function App() {
         )}
 
         {phase === 'error' && (
-          <div className="animate-fade-in max-w-2xl mx-auto">
-            <div className="card border-accent-red/30 bg-accent-red/5">
+          <div className="py-16 animate-fade-in max-w-2xl mx-auto">
+            <div className="card border-accent-red/40 bg-accent-red/5 p-6 sm:p-8">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center flex-shrink-0">
-                  <svg width="20" height="20" viewBox="0 0 16 16" fill="#f85149">
+                <div className="w-12 h-12 rounded-xl bg-accent-red/15 border border-accent-red/30 flex items-center justify-center flex-shrink-0">
+                  <svg width="22" height="22" viewBox="0 0 16 16" fill="#f85149">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                     <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-accent-red mb-1">Analysis Failed</h3>
-                  <p className="text-text-secondary text-sm leading-relaxed">{error}</p>
-                  <button
-                    onClick={handleReset}
-                    className="mt-4 btn-primary text-sm px-4 py-2"
-                  >
-                    Try Again
-                  </button>
+                  <h3 className="text-lg font-bold text-accent-red mb-1">Analysis Failed</h3>
+                  <p className="text-text-secondary text-sm leading-relaxed mb-4">{error}</p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleReset}
+                      className="btn-primary text-xs px-5 py-2.5 shadow-md"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-2.5 text-xs rounded-lg border border-bg-border text-text-secondary hover:text-text-primary hover:border-text-secondary transition-colors"
+                    >
+                      Back to Home
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -174,12 +187,8 @@ export default function App() {
         )}
       </main>
 
-      {/* ── Footer ──────────────────────────────────────── */}
-      <footer className="border-t border-bg-border mt-24 py-8">
-        <div className="max-w-6xl mx-auto px-6 text-center text-text-muted text-xs">
-          DevGuard AI — Automated Root-Cause Debugging &amp; Fix Generator
-        </div>
-      </footer>
+      {/* ── Footer ────────────────────────────────────────────── */}
+      <Footer onScrollTo={handleScrollTo} />
     </div>
   )
 }
